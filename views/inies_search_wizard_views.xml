@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="inies_search_wizard_form" model="ir.ui.view">
+    <field name="name">inies.search.wizard.form</field>
+    <field name="model">inies.search.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Recherche INIES">
+        <sheet>
+
+          <div class="oe_title mb-4">
+            <h2>Recherche INIES</h2>
+            <p class="text-muted">
+              Recherchez un produit sur la base INIES et importez ses données
+              dans la fiche produit Odoo.
+            </p>
+          </div>
+
+          <group>
+            <field name="product_id" string="Produit cible" readonly="1"/>
+          </group>
+
+          <group string="Critères de recherche" invisible="state == 'results'">
+            <group>
+              <field name="search_mode"  string="Mode"/>
+              <field name="search_value" string="Valeur"
+                     placeholder="ex: laine de verre, 4-495:2021 …"/>
+            </group>
+          </group>
+
+          <div class="alert alert-warning" invisible="not error_msg">
+            <field name="error_msg" readonly="1" nolabel="1"/>
+          </div>
+
+          <group string="Résultats" invisible="state != 'results'">
+            <field name="result_count" string="Produits trouvés" readonly="1"/>
+          </group>
+
+          <field name="result_ids"
+                 invisible="state != 'results'"
+                 nolabel="1">
+            <list string="Résultats INIES" create="false" delete="false">
+              <field name="nom"              string="Nom du produit"/>
+              <field name="ref"              string="Référence"/>
+              <field name="type_declaration" string="Type"/>
+              <field name="norme"            string="Norme"/>
+              <field name="statut"           string="Statut"/>
+              <button name="action_import"
+                      string="Importer"
+                      type="object"
+                      class="btn btn-primary btn-sm"
+                      icon="fa-download"
+                      confirm="Importer ce produit ? Les champs INIES du produit seront mis à jour."/>
+            </list>
+          </field>
+
+          <field name="state"     invisible="1"/>
+          <field name="error_msg" invisible="1"/>
+
+        </sheet>
+
+        <footer>
+          <button name="action_search"
+                  string="Rechercher"
+                  type="object"
+                  class="btn btn-primary"
+                  invisible="state == 'results'"/>
+          <button name="action_reset"
+                  string="Nouvelle recherche"
+                  type="object"
+                  class="btn btn-secondary"
+                  invisible="state != 'results'"/>
+          <button string="Fermer"
+                  class="btn btn-secondary"
+                  special="cancel"/>
+        </footer>
+
+      </form>
+    </field>
+  </record>
+
+</odoo>

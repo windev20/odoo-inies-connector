@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_inies_search_wizard,inies.search.wizard access,model_inies_search_wizard,,1,1,1,1
+access_inies_search_result,inies.search.result access,model_inies_search_result,,1,1,1,1

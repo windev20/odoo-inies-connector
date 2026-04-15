@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="product_template_form_inies_tab" model="ir.ui.view">
+    <field name="name">product.template.form.inies.tab</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_form_view"/>
+    <field name="arch" type="xml">
+
+      <notebook position="inside">
+        <page string="Pim isolant" name="inies_tab">
+
+          <div class="o_row mb-3">
+            <button name="action_open_inies_search"
+                    string="Rechercher sur INIES"
+                    type="object"
+                    class="btn btn-primary"
+                    icon="fa-search"/>
+            <button name="action_open_inies_fiche"
+                    string="Ouvrir la fiche INIES"
+                    type="object"
+                    class="btn btn-secondary ms-2"
+                    icon="fa-external-link"
+                    invisible="not x_inies_url"/>
+          </div>
+
+          <group string="Identification INIES">
+            <group>
+              <field name="x_inies_ref"          string="Référence INIES"/>
+              <field name="x_inies_type"         string="Type de déclaration"/>
+              <field name="x_inies_norme"        string="Norme"/>
+              <field name="x_inies_verification" string="Vérification"/>
+            </group>
+            <group>
+              <field name="x_inies_dvt"          string="Durée de vie typique (ans)"/>
+              <field name="x_inies_date_version" string="Date de version"/>
+              <field name="x_inies_lieu_prod"    string="Lieu de production"/>
+              <field name="x_inies_url"          string="URL fiche INIES" widget="url"/>
+            </group>
+          </group>
+
+          <group string="Indicateurs environnementaux"
+                 invisible="not x_inies_indicators">
+            <field name="x_inies_indicators"
+                   string=""
+                   nolabel="1"
+                   widget="text"
+                   readonly="1"/>
+          </group>
+
+        </page>
+      </notebook>
+
+    </field>
+  </record>
+
+</odoo>
