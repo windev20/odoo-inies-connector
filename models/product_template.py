@@ -15,9 +15,11 @@ class ProductTemplate(models.Model):
     x_inies_lieu_prod    = fields.Char(string='Lieu de production')
     x_inies_indicators   = fields.Html(
         string='Indicateurs environnementaux',
-        sanitize=False,
-        strip_style=False,
+        sanitize=True,
+        sanitize_tags=True,
         sanitize_attributes=False,
+        sanitize_style=False,
+        strip_style=False,
     )
 
     # ── Action : ouvrir le wizard de recherche ────────────────────────────────
