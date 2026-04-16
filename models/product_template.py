@@ -13,7 +13,12 @@ class ProductTemplate(models.Model):
     x_inies_dvt          = fields.Integer(string='Durée de vie typique (ans)')
     x_inies_date_version = fields.Char(string='Date de version')
     x_inies_lieu_prod    = fields.Char(string='Lieu de production')
-    x_inies_indicators   = fields.Html(string='Indicateurs environnementaux', sanitize=False)
+    x_inies_indicators   = fields.Html(
+        string='Indicateurs environnementaux',
+        sanitize=False,
+        strip_style=False,
+        sanitize_attributes=False,
+    )
 
     # ── Action : ouvrir le wizard de recherche ────────────────────────────────
     def action_open_inies_search(self):
