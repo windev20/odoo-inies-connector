@@ -87,14 +87,15 @@ class InesSearchResult(models.TransientModel):
         try:
             units        = {u['idUnite']: u['nomUnite']
                             for u in _api_get("/api/Unite")}
+            normes_raw   = _api_get("/api/Norme")
             normes       = {n['idNorme']: n.get('nomNorme', n.get('nom', ''))
-                            for n in _api_get("/api/Norme")}
+                            for n in normes_raw}
             product_data = (json.loads(self.data_json) if self.data_json
                             else _api_get(f"/api/Produit/{self.inies_id}"))
         except Exception as e:
             raise UserError(f"Erreur lors du chargement des données INIES : {e}")
 
-        self._populate_product(wizard.product_id, product_data, units, normes)
+        self._populate_product(wizard.product_id, product_data, units, normes, normes_raw)
 
         # Confirmer et fermer le wizard
         return {
@@ -109,7 +110,7 @@ class InesSearchResult(models.TransientModel):
             },
         }
 
-    def _populate_product(self, product, data, units, normes):
+    def _populate_product(self, product, data, units, normes, normes_raw=None):
         """Remplit les champs du produit Odoo avec les données INIES."""
         def fmt_date(d):
             if not d:
@@ -160,6 +161,7 @@ class InesSearchResult(models.TransientModel):
             'x_inies_date_version': fmt_date(data.get('dateVersion')),
             'x_inies_lieu_prod': LIEUX_PRODUCTION.get(data.get('lieuProduction'), ''),
             'x_inies_dvt':       data.get('dvt') or 0,
+            'x_inies_indicators': self._build_indicators_html(data, normes_raw or []),
             'categ_id':          categ.id if categ else product.categ_id.id,
         }
         if uom_rec:
@@ -305,6 +307,125 @@ class InesSearchResult(models.TransientModel):
         _logger.info("INIES: %d/%d PDFs récupérés pour produit %s",
                      len(result), len(doc_urls), inies_id)
         return result
+
+    def _build_indicators_html(self, data, normes_raw):
+        """Construit un tableau HTML des indicateurs environnementaux."""
+        indicators_q = data.get('tIndicateurQuantites', [])
+        if not indicators_q or not normes_raw:
+            return ''
+
+        id_norme = data.get('idNorme')
+        norme_data = next((n for n in normes_raw if n.get('idNorme') == id_norme), None)
+        if not norme_data:
+            return ''
+
+        # Dictionnaires de référence depuis la norme
+        ind_map = {
+            i['idIndicateurNorme']: i
+            for i in norme_data.get('indicateurs', [])
+        }
+        phase_map = {
+            p['idPhaseNorme']: p
+            for p in norme_data.get('phases', [])
+        }
+
+        # Tableau croisé {idIndicateurNorme: {idPhaseNorme: quantite}}
+        pivot = {}
+        for q in indicators_q:
+            iid = q.get('idIndicateurNorme')
+            pid = q.get('idPhaseNorme')
+            val = q.get('quantite')
+            if iid is not None and pid is not None:
+                pivot.setdefault(iid, {})[pid] = val
+
+        # Phases actives (au moins une valeur non nulle), triées par ordre
+        active_phase_ids = sorted(
+            [pid for pid in phase_map
+             if any(pivot.get(iid, {}).get(pid) not in (None, 0)
+                    for iid in pivot)],
+            key=lambda pid: phase_map[pid].get('ordre', 99)
+        )
+        if not active_phase_ids:
+            # fallback : toutes les phases présentes dans les données
+            active_phase_ids = sorted(
+                {pid for iid_data in pivot.values() for pid in iid_data},
+                key=lambda pid: phase_map.get(pid, {}).get('ordre', 99)
+            )
+
+        # Grouper les indicateurs par type, triés par ordre
+        type_groups = {}
+        for iid in sorted(pivot, key=lambda x: ind_map.get(x, {}).get('ordre', 999)):
+            ind = ind_map.get(iid)
+            if not ind:
+                continue
+            type_name = (ind.get('indicateurType') or {}).get('nomType', 'Autres')
+            type_groups.setdefault(type_name, []).append((iid, ind))
+
+        def fmt(val):
+            if val is None:
+                return '-'
+            if val == 0:
+                return '0'
+            # Notation scientifique compacte pour les très petites/grandes valeurs
+            abs_val = abs(val)
+            if abs_val != 0 and (abs_val < 0.001 or abs_val >= 1e6):
+                return f'{val:.2e}'
+            return f'{val:g}'
+
+        # ── Construction HTML ──────────────────────────────────────────────
+        css = (
+            '<style>'
+            '.inies-table{border-collapse:collapse;width:100%;font-size:12px}'
+            '.inies-table th,.inies-table td{border:1px solid #dee2e6;padding:4px 6px;text-align:right}'
+            '.inies-table th{background:#f8f9fa;font-weight:600}'
+            '.inies-table td.ind-name{text-align:left;white-space:nowrap}'
+            '.inies-table tr.type-header td{background:#e9ecef;font-weight:700;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}'
+            '</style>'
+        )
+
+        phase_headers_parts = []
+        for pid in active_phase_ids:
+            ph = phase_map[pid]
+            nom = ph.get('nomPhase', '')
+            code = ph.get('codePhase', str(pid))
+            phase_headers_parts.append(
+                '<th title="' + nom + '">' + code + '</th>'
+            )
+        phase_headers = ''.join(phase_headers_parts)
+        html = (
+            f'{css}'
+            f'<table class="inies-table">'
+            f'<thead><tr>'
+            f'<th style="text-align:left">Indicateur</th>'
+            f'<th>Unité</th>'
+            f'{phase_headers}'
+            f'</tr></thead><tbody>'
+        )
+
+        for type_name, inds in type_groups.items():
+            colspan = 2 + len(active_phase_ids)
+            html += (
+                f'<tr class="type-header">'
+                f'<td colspan="{colspan}">{type_name}</td>'
+                f'</tr>'
+            )
+            for iid, ind in inds:
+                unit = (ind.get('unit') or {}).get('name', '')
+                short = ind.get('shortName') or ind.get('code') or str(iid)
+                cells = ''.join(
+                    f'<td>{fmt(pivot.get(iid, {}).get(pid))}</td>'
+                    for pid in active_phase_ids
+                )
+                html += (
+                    f'<tr>'
+                    f'<td class="ind-name">{short}</td>'
+                    f'<td>{unit}</td>'
+                    f'{cells}'
+                    f'</tr>'
+                )
+
+        html += '</tbody></table>'
+        return html
 
     def _get_or_create_category(self, type_label):
         """Retourne ou crée la catégorie INIES / <type>."""
