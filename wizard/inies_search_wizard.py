@@ -372,56 +372,57 @@ class InesSearchResult(models.TransientModel):
                 return f'{val:.2e}'
             return f'{val:g}'
 
-        # ── Construction HTML ──────────────────────────────────────────────
-        css = (
-            '<style>'
-            '.inies-table{border-collapse:collapse;width:100%;font-size:12px}'
-            '.inies-table th,.inies-table td{border:1px solid #dee2e6;padding:4px 6px;text-align:right}'
-            '.inies-table th{background:#f8f9fa;font-weight:600}'
-            '.inies-table td.ind-name{text-align:left;white-space:nowrap}'
-            '.inies-table tr.type-header td{background:#e9ecef;font-weight:700;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}'
-            '</style>'
-        )
+        # ── Styles inline (évite la sanitization Odoo des blocs <style>) ──
+        S_TABLE  = 'border-collapse:collapse;width:100%;font-size:12px'
+        S_TH     = ('border:1px solid #dee2e6;padding:4px 8px;'
+                    'background:#f8f9fa;font-weight:600;'
+                    'text-align:right;white-space:nowrap')
+        S_TH_L   = S_TH + ';text-align:left'
+        S_TD     = 'border:1px solid #dee2e6;padding:3px 8px;text-align:right'
+        S_TD_L   = S_TD + ';text-align:left;white-space:nowrap'
+        S_HEADER = ('border:1px solid #dee2e6;padding:4px 8px;'
+                    'background:#e9ecef;font-weight:700;text-align:left;'
+                    'font-size:11px;text-transform:uppercase;letter-spacing:.5px')
 
+        # En-têtes de colonnes (phases)
         phase_headers_parts = []
         for pid in active_phase_ids:
             ph = phase_map[pid]
-            nom = ph.get('nomPhase', '')
+            nom  = ph.get('nomPhase', '')
             code = ph.get('codePhase', str(pid))
             phase_headers_parts.append(
-                '<th title="' + nom + '">' + code + '</th>'
+                '<th style="' + S_TH + '" title="' + nom + '">' + code + '</th>'
             )
         phase_headers = ''.join(phase_headers_parts)
+
         html = (
-            f'{css}'
-            f'<table class="inies-table">'
-            f'<thead><tr>'
-            f'<th style="text-align:left">Indicateur</th>'
-            f'<th>Unité</th>'
-            f'{phase_headers}'
-            f'</tr></thead><tbody>'
+            '<table style="' + S_TABLE + '">'
+            '<thead><tr>'
+            '<th style="' + S_TH_L + '">Indicateur</th>'
+            '<th style="' + S_TH + '">Unité</th>'
+            + phase_headers +
+            '</tr></thead><tbody>'
         )
 
+        colspan = str(2 + len(active_phase_ids))
         for type_name, inds in type_groups.items():
-            colspan = 2 + len(active_phase_ids)
             html += (
-                f'<tr class="type-header">'
-                f'<td colspan="{colspan}">{type_name}</td>'
-                f'</tr>'
+                '<tr><td colspan="' + colspan + '" style="' + S_HEADER + '">'
+                + type_name + '</td></tr>'
             )
             for iid, ind in inds:
-                unit = (ind.get('unit') or {}).get('name', '')
+                unit  = (ind.get('unit') or {}).get('name', '')
                 short = ind.get('shortName') or ind.get('code') or str(iid)
                 cells = ''.join(
-                    f'<td>{fmt(pivot.get(iid, {}).get(pid))}</td>'
+                    '<td style="' + S_TD + '">' + fmt(pivot.get(iid, {}).get(pid)) + '</td>'
                     for pid in active_phase_ids
                 )
                 html += (
-                    f'<tr>'
-                    f'<td class="ind-name">{short}</td>'
-                    f'<td>{unit}</td>'
-                    f'{cells}'
-                    f'</tr>'
+                    '<tr>'
+                    '<td style="' + S_TD_L + '">' + short + '</td>'
+                    '<td style="' + S_TD + '">' + unit + '</td>'
+                    + cells +
+                    '</tr>'
                 )
 
         html += '</tbody></table>'
