@@ -1,6 +1,6 @@
 {
     'name': 'INIES Connector',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Inventory',
     'summary': 'Recherche et import de produits depuis la base INIES directement dans Odoo',
     'author': 'ibatix',
