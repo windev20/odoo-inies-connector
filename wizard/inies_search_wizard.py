@@ -1,5 +1,4 @@
 import base64
-import http.cookiejar
 import json
 import logging
 import urllib.parse
@@ -20,6 +19,13 @@ STATUTS       = {1: "En cours", 2: "En attente", 3: "En ligne",
 VERIFICATIONS = {0: "Non vérifié", 1: "Auto-déclaré",
                  2: "Vérifié (interne)", 3: "Vérifié (accrédité)",
                  4: "Vérifié tierce partie"}
+LIEUX_PRODUCTION = {
+    0: "Non renseigné",
+    1: "France entière",
+    2: "Hors France",
+    3: "France et hors France",
+    4: "Région(s) spécifique(s)",
+}
 
 DOC_TYPES = {1: "FDES", 2: "DED", 3: "Attestation", 4: "Rapport", 5: "Documentation", 6: "Image"}
 
@@ -77,13 +83,14 @@ class InesSearchResult(models.TransientModel):
         if not wizard.product_id:
             raise UserError("Aucun produit cible sélectionné.")
 
-        # Charger les données complètes depuis l'API INIES
+        # Charger les données depuis le cache (data_json) ou l'API INIES
         try:
-            units  = {u['idUnite']: u['nomUnite']
-                      for u in _api_get("/api/Unite")}
-            normes = {n['idNorme']: n.get('nomNorme', n.get('nom', ''))
-                      for n in _api_get("/api/Norme")}
-            product_data = _api_get(f"/api/Produit/{self.inies_id}")
+            units        = {u['idUnite']: u['nomUnite']
+                            for u in _api_get("/api/Unite")}
+            normes       = {n['idNorme']: n.get('nomNorme', n.get('nom', ''))
+                            for n in _api_get("/api/Norme")}
+            product_data = (json.loads(self.data_json) if self.data_json
+                            else _api_get(f"/api/Produit/{self.inies_id}"))
         except Exception as e:
             raise UserError(f"Erreur lors du chargement des données INIES : {e}")
 
@@ -127,12 +134,6 @@ class InesSearchResult(models.TransientModel):
         prod_type_label = PRODUIT_TYPES.get(data.get('produitType'), 'INIES')
         categ = self._get_or_create_category(prod_type_label)
 
-        # Indicateurs environnementaux
-        indicators = data.get('tIndicateurQuantites', [])
-        ind_dict   = {}
-        for ind in indicators:
-            ind_dict[f"indicateur_{ind.get('idIndicateurNorme')}_phase_{ind.get('idPhaseNorme')}"] = ind.get('quantite')
-
         # Documents : construire les URLs
         docs_fdes  = []
         docs_other = []
@@ -157,8 +158,7 @@ class InesSearchResult(models.TransientModel):
             'x_inies_type':      PRODUIT_TYPES.get(data.get('produitType'), ''),
             'x_inies_verification': VERIFICATIONS.get(data.get('verification'), ''),
             'x_inies_date_version': fmt_date(data.get('dateVersion')),
-            'x_inies_lieu_prod': '',
-            'x_inies_indicators': json.dumps(ind_dict, ensure_ascii=False) if ind_dict else '',
+            'x_inies_lieu_prod': LIEUX_PRODUCTION.get(data.get('lieuProduction'), ''),
             'x_inies_dvt':       data.get('dvt') or 0,
             'categ_id':          categ.id if categ else product.categ_id.id,
         }
@@ -232,8 +232,6 @@ class InesSearchResult(models.TransientModel):
             return {}
 
         page_url = f"{BASE_URL}/consultation/infos-produit/{inies_id}"
-        # Index url→ordre pour associer les PDFs capturés dans l'ordre des clics
-        url_order = {u: i for i, u in enumerate(doc_urls)}
         captured_list = []   # [(bytes, resp_url), ...]
 
         try:

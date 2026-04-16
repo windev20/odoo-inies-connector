@@ -8,7 +8,7 @@
     <field name="arch" type="xml">
 
       <notebook position="inside">
-        <page string="Pim isolant" name="inies_tab">
+        <page string="INIES" name="inies_tab">
 
           <div class="o_row mb-3">
             <button name="action_open_inies_search"
@@ -39,14 +39,6 @@
             </group>
           </group>
 
-          <group string="Indicateurs environnementaux"
-                 invisible="not x_inies_indicators">
-            <field name="x_inies_indicators"
-                   string=""
-                   nolabel="1"
-                   widget="text"
-                   readonly="1"/>
-          </group>
 
         </page>
       </notebook>
