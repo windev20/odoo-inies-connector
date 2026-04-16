@@ -39,13 +39,6 @@
             </group>
           </group>
 
-          <div invisible="not x_inies_indicators">
-            <separator string="Indicateurs environnementaux"/>
-            <field name="x_inies_indicators"
-                   nolabel="1"
-                   readonly="1"/>
-          </div>
-
         </page>
       </notebook>
 
